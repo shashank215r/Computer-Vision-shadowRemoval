@@ -1,0 +1,195 @@
+function [m_lx , m_ly] = getIlluminationModel(boundary,Illum_log,gradX,gradY,radius)
+
+
+m_lx = getModelHorizontal();
+m_ly = getModelVertical();
+
+
+    function[m_ly]= getModelVertical()
+
+        t1_v = struct();
+        t2_v = struct();
+        tb = struct();
+
+        m_ly = struct('t1', {}, 't2', {}, 'c', {});
+
+        size = length(boundary);
+        for i = 1:size
+
+            min_prod_opt = 1;
+            tb(i).x = boundary(i, 2);
+            tb(i).y = boundary(i, 1);
+
+
+            t1_v.x =  tb(i).x;
+            t1_v.y = tb(i).y;
+
+            t2_v.x = tb(i).x;
+            t2_v.y = tb(i).y;
+            
+            c_v = 0;
+
+            for j = 1:radius/2
+                for k = 1:radius/2
+                    t1 = tb(i); t2 = tb(i);
+
+                    t1.y = assignCordinate(t1.y -j,1);
+                    t2.y = assignCordinate(t2.y +k,1);
+
+                    if Illum_log(t2.y, t2.x) < Illum_log(t1.y, t1.x)
+                        temp = t2;
+                        t2 = t1;
+                        t1 = temp;
+                    end
+
+                    c = Illum_log(t1.y, t1.x) - Illum_log(t2.y, t2.x);
+
+
+                    sol_mtx = solveCubic(t1.y, t2.y, c);
+
+                    cummi_grad = zeros(radius,1);
+                    for l = -radius/2:radius/2
+
+                        t = tb(i);
+                        t.y = assignCordinate(t.y+l,1);
+
+                        diff_c = 3*sol_mtx(1)*t.y^2 + 2*sol_mtx(2)*t.y + sol_mtx(3);
+                        grad_noIllu = gradY(t.y, t.x) - diff_c;
+                        cummi_grad(l+radius/2+1) = grad_noIllu;
+
+                    end
+
+                    mean_mu = mean(cummi_grad);
+                    sigma = var(cummi_grad);
+                    product = 1;
+
+                    for l = -radius/2:radius/2
+                       phi  = exp(-1*(cummi_grad(l+radius/2+1)-mean_mu)^2/(2*sigma))/sqrt(2*pi*sigma);
+                       product = product * phi;
+                    end
+                    product = -1*product;
+
+
+                    if product <= min_prod_opt
+
+                        min_prod_opt = product;
+                        t1_v = t1;
+                        t2_v = t2;
+                        c_v = c;
+
+                    end
+
+                end
+            end
+
+           m_ly(i).t1=t1_v;
+           m_ly(i).t2=t2_v;
+           m_ly(i).c =c_v;
+
+        end
+
+    end
+
+    function [m_lx] = getModelHorizontal()
+
+        size = length(boundary);
+        opt_t1 = struct();
+        opt_t2 = struct();
+        t_b = struct();
+
+
+        m_lx = struct('t1', {}, 't2', {}, 'c', {});
+
+        for i = 1:size
+
+            min_prod = 1;
+            t_b(i).x = boundary(i, 2);
+            t_b(i).y = boundary(i, 1);
+
+            %opt_t1(i).x =  t_b(i).x;
+            %opt_t1(i).y = t_b(i).y;
+
+            %opt_t2(i).x = t_b(i).x;
+            %opt_t2(i).y = t_b(i).y;
+            
+            opt_t1.x = t_b(i).x;
+            opt_t1.y = t_b(i).y;
+            
+            opt_t2.x = t_b(i).x;
+            opt_t2.y = t_b(i).y;
+            
+            c_h = 0;
+
+
+            for j = 1:radius/2
+                for k = 1:radius/2
+                    product = 1;
+
+                    t1 = t_b(i); t2 = t_b(i);
+                    %t1.x = t1.x - j;
+                    t1.x = assignCordinate(t1.x - j,2);
+                    t2.x = assignCordinate(t2.x + k,2);
+
+                    if Illum_log(t2.y, t2.x) < Illum_log(t1.y, t1.x)
+                        temp = t2;
+                        t2 = t1;
+                        t1 = temp;
+                    end
+                    c = Illum_log(t1.y, t1.x) - Illum_log(t2.y, t2.x);
+
+                    coeff = solveCubic(t1.x, t2.x, c);
+                    cummi_grad = zeros(radius,1);
+
+                    for l = -radius/2:radius/2
+                        t = t_b(i);
+                        t.x = assignCordinate(t.x + l,2);
+
+                        grad_c = 3*coeff(1)*t.x^2 + 2*coeff(2)*t.x + coeff(3);
+
+                        grad_noIllu = gradX(t.y, t.x) - grad_c;
+
+                        cummi_grad(l+radius/2+1) = grad_noIllu;
+                    end
+
+                    mean_mu = mean(cummi_grad);
+                    sigma = var(cummi_grad);
+
+                    for l = -radius/2:radius/2
+                        phi  = exp(-1*(cummi_grad(l+radius/2+1)-mean_mu)^2/(2*sigma))/sqrt(2*pi*sigma);
+                        product = product * phi;
+                    end
+
+                    product = -1*product;
+                    if product <= min_prod
+                        min_prod = product;
+
+                        opt_t1 = t1;
+                        opt_t2= t2;
+                        c_h = c;
+                    end
+                end
+            end
+
+           m_lx(i).t1=opt_t1;
+           m_lx(i).t2=opt_t2;
+           m_lx(i).c =c_h;
+
+
+    end
+    end
+
+
+    function[val] = assignCordinate(val,dir)
+
+        if val < 1
+            val = 1;
+        end
+        
+        if val > size(Illum_log,dir)
+            val = size(Illum_log,dir);
+        end
+
+    end
+
+end
+

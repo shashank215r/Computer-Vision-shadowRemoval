@@ -1,0 +1,31 @@
+function outputImageText = Main(InputImage, MaskImage)
+
+Radius = 8;
+im = imread('images/DSC_0400.jpg');
+im_mask = imread('images/DSC_0400.png');
+
+im = im2double(im);
+
+
+meanval = 0;
+for comp=1:3
+
+     I = im(:,:,comp);
+     meanval(1, comp) = mean(I(:));
+     [t1_h,t2_h,t1_v,t2_v,c_h,c_v]=getIlluminationModel(im,im_mask);
+
+end
+poissonOn = 1;
+
+ outputImage = ImageRecH(outGradX, outGradY, meanval, poissonOn);
+ outputImageText = ImageRecH(outGradXtext, outGradYtext, meanval, poissonOn);
+
+figure; imshow(InputImage, []);
+%figure; imshow(outGradX, []);
+%figure; imshow(outGradY, []);
+%figure; imshow(outGradXtext, []);
+%figure; imshow(outGradYtext, []);
+figure; imshow(outputImage, []);
+figure; imshow(outputImageText, []);
+%imshow(img);
+end
